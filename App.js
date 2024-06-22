@@ -47,6 +47,7 @@ const HomeScreen = ({ navigation, route, addHistory, setFromHistory, fromHistory
 
   const searchWeather = (location) => {
     setStatus('loading')
+    // BASE_URL = 'https://api.openweathermap.org/data/2.5/weather'
     axios
       .get(`${BASE_URL}?q=${location}&appid=${API_KEY}`)
       .then((response) => {
@@ -66,6 +67,7 @@ const HomeScreen = ({ navigation, route, addHistory, setFromHistory, fromHistory
   }
 
   const handleSearchButton = (location) => {
+    location = location.trim()
     setFromHistory(false);
     searchWeather(location);
     addHistory(location);
@@ -99,6 +101,7 @@ const HistoryScreen = ({ navigation, route, history, deleteHistory, setFromHisto
     container: {
       flex: 1,
       padding: 20,
+      paddingBottom: 0,
     },
     historyItem: {
       marginBottom: 20,
