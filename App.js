@@ -1,14 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { NavigationContainer, useFocusEffect } from '@react-navigation/native';
+import { View, StyleSheet, Button, Text, ActivityIndicator, TouchableOpacity } from 'react-native'
+
 import axios from "axios";
 import { BASE_URL, API_KEY } from "./src/constant";
-import { View, StyleSheet, Text, ActivityIndicator } from 'react-native'
+
+import { v4 as uuid } from 'uuid';
+import 'react-native-get-random-values';
+
+import Ionicons from 'react-native-vector-icons/Ionicons';
+
 import WeatherSearch from './src/components/weatherSearch'
 import WeatherInfo from './src/components/weatherInfo'
+import { FlatList } from "react-native";
 
-const App = () => {
+const Tab = createBottomTabNavigator();
+
+const HomeScreen = ({ navigation, route, addHistory, setFromHistory, fromHistory }) => {
   const [weatherData, setWeatherData] = useState()
   const [status, setStatus] = useState('')
 
+  useEffect(() => {
+    if (fromHistory) {
+      setFromHistory(false);
+      searchWeather(route.params.locationFromHistory)
+    }
+    console.log('useEffect fromHistory')
+  })
+  
   const renderComponent = () => {
     switch (status) {
       case 'loading':
@@ -37,7 +57,6 @@ const App = () => {
 
         setWeatherData(data)
         setStatus('success')
-        console.log(JSON.stringify(response, null, 2))
       })
       .catch((error) => {
         setStatus('error')
@@ -45,23 +64,172 @@ const App = () => {
       })
   }
 
+  const handleSearchButton = (location) => {
+    setFromHistory(false);
+    searchWeather(location);
+    addHistory(location);
+  }
+
+  const styles = StyleSheet.create({
+    container: {
+      padding: 20,
+      paddingTop: 0,
+    },
+    marginTop20: {
+      marginTop: 20,
+    },
+  })
+
   return (
     <>
       <View style={styles.container}>
-        <WeatherSearch searchWeather={searchWeather} />
+        <WeatherSearch 
+          handleSearchButton={handleSearchButton} 
+        />
         <View style={styles.marginTop20}>{renderComponent()}</View>
       </View>
     </>
   )
 }
 
-const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-  },
-  marginTop20: {
-    marginTop: 20,
+const HistoryScreen = ({ navigation, route, history, deleteHistory, setFromHistory }) => {
+  
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 20,
+    },
+    historyItem: {
+      marginBottom: 20,
+      paddingHorizontal: 30,
+      textAlign: 'center',
+      height: 60,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+
+      backgroundColor: '#fff',
+      borderRadius: 10,
+    },
+    historyText: {
+      fontSize: 16,
+    },
+    noHistory: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    }
+  })
+
+  const HistoryItem = ({ historyItem }) => {
+    return (
+      <TouchableOpacity 
+        onPress={() => {
+          setFromHistory(true)
+          navigation.navigate('Home', { locationFromHistory: historyItem.location })
+        }}
+        style={styles.historyItem}
+      >
+        <Text style={styles.historyText}>{historyItem.location}</Text>
+        <Button 
+          title="Delete" 
+          color='red'
+          onPress={() => deleteHistory(historyItem.id)}
+        />
+      </TouchableOpacity>
+    )
   }
-})
+
+  const renderItem = ({item}) => <HistoryItem historyItem={item} />
+
+  console.log('history length: ', history.length)
+
+  return (
+    <>
+      <View style={styles.container}>
+        {history.length !== 0 ? (
+          <FlatList 
+            data={history}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+          />) : (
+          <View style={styles.noHistory}>
+            <Text>No History!</Text>
+          </View>)
+        }
+      </View>
+    </>
+  )
+}
+
+const App = () => {
+  const [history, setHistory] = useState([
+    {id: 1, location: 'jak'},
+    {id: 2, location: 'hahaha'}
+  ])
+  // untuk menentukan apakah harus search dari history
+  const [fromHistory, setFromHistory] = useState(false)
+  console.log('App history: ', history)
+
+  const addHistory = (location) => {
+    const newHistoryEntry = {
+      id: uuid(),
+      location: location
+    }
+    setHistory((prev) => [newHistoryEntry, ...prev])
+  }
+
+  const deleteHistory = (id) => {
+    const newHistory = history.filter((item) => {
+      return id !== item.id;
+    })
+
+    setHistory(newHistory)
+  }
+
+  return (
+    <NavigationContainer>
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          tabBarIcon: ({ focused, color, size }) => {
+            let iconName;
+
+            if (route.name === 'Home') {
+              iconName = focused ? 'home' : 'home-outline';
+            } else if (route.name === 'History') {
+              iconName = focused ? 'time' : 'time-outline';
+            }
+
+            // You can return any component that you like here!
+            return <Ionicons name={iconName} size={size} color={color} />;
+          },
+          tabBarActiveTintColor: 'blue',
+          tabBarInactiveTintColor: 'gray',
+        })}
+        initialRouteName="History"
+      >
+        <Tab.Screen 
+          name="Home" 
+          children={(props) => (<HomeScreen 
+                                  {...props} 
+                                  addHistory={addHistory} 
+                                  fromHistory={fromHistory}
+                                  setFromHistory={setFromHistory}
+                                />)}
+          initialParams={{locationFromHistory: ''}}
+        />
+        <Tab.Screen 
+          name="History" 
+          children={(props) => (<HistoryScreen {...props} 
+                                  history={history} 
+                                  deleteHistory={deleteHistory} 
+                                  setFromHistory={setFromHistory}
+                                  />)}
+          options={{ tabBarBadge: history.length }}
+        />
+      </Tab.Navigator>
+    </NavigationContainer>
+  )
+}
 
 export default App
