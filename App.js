@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer, useFocusEffect } from '@react-navigation/native';
 import { View, StyleSheet, Button, Text, ActivityIndicator, TouchableOpacity } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import axios from "axios";
 import { BASE_URL, API_KEY } from "./src/constant";
@@ -21,12 +22,12 @@ const HomeScreen = ({ navigation, route, addHistory, setFromHistory, fromHistory
   const [weatherData, setWeatherData] = useState()
   const [status, setStatus] = useState('')
 
+  // show weather from location from history
   useEffect(() => {
     if (fromHistory) {
       setFromHistory(false);
       searchWeather(route.params.locationFromHistory)
     }
-    console.log('useEffect fromHistory')
   })
   
   const renderComponent = () => {
@@ -163,13 +164,50 @@ const HistoryScreen = ({ navigation, route, history, deleteHistory, setFromHisto
 }
 
 const App = () => {
-  const [history, setHistory] = useState([
-    {id: 1, location: 'jak'},
-    {id: 2, location: 'hahaha'}
-  ])
+  const [history, setHistory] = useState([])
   // untuk menentukan apakah harus search dari history
   const [fromHistory, setFromHistory] = useState(false)
-  console.log('App history: ', history)
+
+  // ======================== load and store history to async storage ==============
+  // Load history dari async storage
+  useEffect(() => {
+    // Retrieving the array of objects
+    getData('history').then((data) => {
+      console.log('useEffect Load Data: ', data);
+
+      setHistory(data);
+    });
+  }, [])
+
+  // Store history ke async storage
+  useEffect(() => {
+    storeData('history', history);
+  }, [history]);
+
+  const storeData = async(key, value) => {
+    try {
+      const jsonValue = JSON.stringify(value);
+      await AsyncStorage.setItem(key, jsonValue);
+    } catch (err) {
+      console.log('storeData: ', err);
+    }
+  }
+
+  const getData = async(key) => {
+    try {
+      const jsonValue = await AsyncStorage.getItem(key);
+      if (jsonValue) {
+        return JSON.parse(jsonValue) 
+      } else {
+        return []
+      }
+
+    } catch (err) {
+      console.log('getData: ', err);
+    }
+  }
+
+  // ===================================================================================
 
   const addHistory = (location) => {
     const newHistoryEntry = {
@@ -206,7 +244,7 @@ const App = () => {
           tabBarActiveTintColor: 'blue',
           tabBarInactiveTintColor: 'gray',
         })}
-        initialRouteName="History"
+        initialRouteName="Home"
       >
         <Tab.Screen 
           name="Home" 
